@@ -1,7 +1,7 @@
 module Server.HTTP exposing
     ( Body
     , Headers
-    , Method
+    , Method(..)
     , Request
     , StatusCode(..)
     , Url

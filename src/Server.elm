@@ -1,16 +1,25 @@
-module Main exposing (..)
+module Server exposing (Flags, Model, Msg(..), init, main, subscriptions, update)
 
-import Http exposing (request)
+{-| Example server side code
+-}
+
+import Html.Attributes exposing (lang)
+import Http
 import Json.Decode
 import Json.Encode
-import Process
 import Route
-import Server.DB
-import Server.HTTP exposing (Body, Headers, Request, StatusCode(..))
-import Server.Handler
+import Server.HTTP exposing (Body, Headers, Method(..), Request, StatusCode(..))
+import Server.KV
+import Server.Platform
 import Task
-import Time
-import Url.Parser
+
+
+main =
+    Server.Platform.application
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        }
 
 
 type alias Flags =
@@ -29,15 +38,6 @@ type Msg
     | HTTPRespond StatusCode Body Headers Request
 
 
-main : Program Flags Model Msg
-main =
-    Platform.worker
-        { init = init
-        , update = update
-        , subscriptions = subscriptions
-        }
-
-
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { counter = 0, tableName = flags.tableName }
@@ -53,11 +53,8 @@ update msg model =
             routeRequest request model
 
         HTTPRespond statuscode body headers request ->
-            -- usually our server side activities end with a chain of Task
-            -- to end our http handling with a Cmd, the simplest would be to
-            -- construct a msg that will always writeResponse
             ( model
-            , Server.Handler.writeResponse statuscode body headers request
+            , Server.Platform.writeResponse statuscode body headers request
             )
 
 
@@ -73,8 +70,8 @@ routeRequest request model =
                 , ( "tableName", Json.Encode.string model.tableName )
                 ]
     in
-    case Debug.log "http" (Route.fromRequest request) of
-        ( method, ctx, Route.Homepage ) ->
+    case Route.fromRequest request of
+        ( method, ctx, Route.CounterPage ) ->
             -- we load the counter from key-value store if possible
             -- increment, save it back to key-value store
             -- render that counter along with our in-memory model counter
@@ -83,10 +80,10 @@ routeRequest request model =
                     { model | counter = model.counter + 1 }
 
                 readMaybeIntTask =
-                    Server.DB.read model.tableName rowKey (Json.Decode.maybe Json.Decode.int)
+                    Server.KV.read model.tableName rowKey (Json.Decode.maybe Json.Decode.int)
 
                 writeIncrementTask maybeInt =
-                    Server.DB.write
+                    Server.KV.write
                         model.tableName
                         rowKey
                         (Json.Encode.int (Maybe.withDefault 0 maybeInt + 1))
@@ -106,12 +103,15 @@ routeRequest request model =
             )
 
         ( _, _, _ ) ->
-            ( model, Server.Handler.writeResponse StatusNotFound "Page not found!" Json.Encode.null request )
+            ( model, Server.Platform.writeResponse StatusNotFound "Page not found!" Json.Encode.null request )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Server.Handler.handleRequest OnHttpRequest
+    -- you MUST use `Server.Platform.writeResponse` somewhere
+    -- otherwise your server won't boot: missing `app.ports.responseWrite`
+    -- (even if it booted, your HTTP request will hang since it's left unreplied)
+    Server.Platform.handleRequest OnHttpRequest
 
 
 

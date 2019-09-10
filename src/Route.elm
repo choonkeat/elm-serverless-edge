@@ -1,16 +1,18 @@
-module Route exposing (Context(..), Page(..), decodeContext, fromRequest)
+module Route exposing (Context(..), Page(..), fromRequest)
 
 import Json.Decode exposing (oneOf)
+import Json.Decode.Extra
 import Jwt
 import Server.HTTP exposing (Method, Request)
 import Url
-import Url.Parser exposing ((</>), (<?>), map, query, s)
-import Url.Parser.Query
+import Url.Parser exposing ((</>), map, s)
 
 
 type Page
     = NotFound
     | Homepage
+    | Status
+    | CounterPage
 
 
 {-| This section is the equivalent of common web frameworks' "routes"
@@ -19,8 +21,8 @@ router : Url.Parser.Parser (Page -> b) b
 router =
     Url.Parser.oneOf
         [ map Homepage Url.Parser.top
-
-        -- , map Status (s "api" </> s "status")
+        , map Status (s "api" </> s "status")
+        , map CounterPage (s "api" </> s "counter")
         ]
 
 
@@ -55,8 +57,8 @@ to extract accept-language and user-agent. If that succeed, our `Context is`User
 decodeContext : Json.Decode.Decoder Context
 decodeContext =
     oneOf
-        [ -- try to decode as User carrying JWT
-          Json.Decode.map3 User
+        [ Json.Decode.map3 User
+            -- try to decode as User carrying JWT
             (oneOf
                 [ Json.Decode.field "authorization" authorizationDecoder
                 , Json.Decode.field "cookie" authorizationDecoder
@@ -64,8 +66,8 @@ decodeContext =
             )
             (Json.Decode.maybe (Json.Decode.field "accept-language" decodeLang))
             (Json.Decode.maybe (Json.Decode.field "user-agent" Json.Decode.string))
-        , -- otherwise, settle for Anonymous user
-          Json.Decode.map2 Anonymous
+        , Json.Decode.map2 Anonymous
+            -- otherwise, settle for Anonymous user
             (Json.Decode.maybe (Json.Decode.field "accept-language" decodeLang))
             (Json.Decode.maybe (Json.Decode.field "user-agent" Json.Decode.string))
         ]
@@ -98,18 +100,8 @@ authorizationDecoder =
         |> Json.Decode.andThen
             (Jwt.decodeToken jwtDecoder
                 >> Result.mapError jwtErrorToString
-                >> decoderFromResult
+                >> Json.Decode.Extra.fromResult
             )
-
-
-decoderFromResult : Result String a -> Json.Decode.Decoder a
-decoderFromResult result =
-    case result of
-        Ok a ->
-            Json.Decode.succeed a
-
-        Err err ->
-            Json.Decode.fail err
 
 
 jwtErrorToString : Jwt.JwtError -> String

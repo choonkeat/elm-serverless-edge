@@ -1,0 +1,10 @@
+name = "<REPLACE ME WITH WORKER NAME>"
+type = "webpack"
+private = false
+account_id = "<REPLACE ME>"
+
+[[kv-namespaces]]
+# configure under `KV` at https://dash.cloudflare.com/{account_id}/workers/edit/{name}
+binding = "<REPLACE ME WITH ENV CLOUDFLARE_KV_NAMESPACE>"
+# https://dash.cloudflare.com/{account_id}/workers/kv/namespaces
+id = "<REPLACE ME>"
