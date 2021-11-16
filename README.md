@@ -1,3 +1,5 @@
+_NOTE: this repo is an early iteration of [elm-webapp](https://github.com/choonkeat/elm-webapp). ideally we re-introduce a cloudflare workers runtime to [elm-webapp](https://github.com/choonkeat/elm-webapp) instead_
+
 # Elm on Cloudflare Workers with KV
 
 Elm is a perfect fit actually, since you can hardly do anything other than HTTP and accessing the Cloudflare KV store.
